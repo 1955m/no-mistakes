@@ -352,8 +352,10 @@ supported effort levels remain the harness/provider's responsibility.
 Both roles can use the same harness with different models. Reviews and rereviews
 always run fresh; only review fixes reuse the fixer's session when
 `session_reuse` is enabled and the fixer supports it. These settings do not
-select the agents repairing tests, documentation, or CI. Eval capture strips
-these profiles so replay candidates remain authoritative.
+select the agents repairing tests, documentation, or CI. An opt-in
+[per-run Pi profile](#per-run-pi-profiles) supersedes these role values for
+that run. Eval capture strips these profiles so replay candidates remain
+authoritative.
 
 ### agent_args_override
 
@@ -421,7 +423,7 @@ agent_args_override:
 
 Do not put a model flag under `opencode` here: these flags go to `opencode serve`, which exits with usage on an unknown option. Use `agent_config.opencode.model` instead.
 
-For Codex, `service_tier` and reasoning effort tune different things: `service_tier` selects the speed or priority lane, while reasoning depth is what [`agent_config`](#agent_config)'s `effort` sets (as `-c model_reasoning_effort`). no-mistakes reloads global config while setting up each run, so edits made before `no-mistakes axi run` apply to that run. For repeatable profiles, use separately initialized `NM_HOME` directories; each has its own `config.yaml` and no-mistakes state.
+For Codex, `service_tier` and reasoning effort tune different things: `service_tier` selects the speed or priority lane, while reasoning depth is what [`agent_config`](#agent_config)'s `effort` sets (as `-c model_reasoning_effort`). no-mistakes reloads global config while setting up each run, so edits made before `no-mistakes axi run` apply to that run. An opt-in [per-run Pi profile](#per-run-pi-profiles) still keeps its pinned model and effort for that run's lifetime. For repeatable profiles, use separately initialized `NM_HOME` directories; each has its own `config.yaml` and no-mistakes state.
 
 ### forge_profiles
 
