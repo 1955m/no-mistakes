@@ -1,0 +1,30 @@
+CASE: override without repository opt-in
+EXPECTED EXIT: 1
+ACTUAL EXIT: 1
+RESULT: PASS
+Found no-mistakes signature in PR #1701 body.
+::error::Test step was approved over a failing configured test command without a recorded repository opt-in.
+
+attestation test.override_reason: configured test command failed with exit code 7
+
+Set test.allow_approve_over_failure in the trusted default-branch .no-mistakes.yaml to a non-empty reason if this repository intentionally allows merging after that approval. The required check stays red until that opt-in is recorded.
+
+See CONTRIBUTING.md for setup and the full workflow.
+
+PR author: example-user
+
+CASE: override with recorded repository opt-in
+EXPECTED EXIT: 0
+ACTUAL EXIT: 0
+RESULT: PASS
+Found no-mistakes signature in PR #1702 body.
+Found structurally compliant pipeline step attestation.
+::warning::PR-body attestation is author-editable and is not cryptographic proof that no-mistakes produced it.
+
+CASE: ordinary completed Test without override
+EXPECTED EXIT: 0
+ACTUAL EXIT: 0
+RESULT: PASS
+Found no-mistakes signature in PR #1703 body.
+Found structurally compliant pipeline step attestation.
+::warning::PR-body attestation is author-editable and is not cryptographic proof that no-mistakes produced it.
