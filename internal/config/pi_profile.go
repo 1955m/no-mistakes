@@ -11,11 +11,16 @@ import (
 
 // ResolvePiProfile resolves only opt-in requests. Native selection overrides
 // are ambiguous with a run pin and are refused, not silently given precedence.
+// Global agent and review_agents must already be Pi-only so a mixed harness is
+// refused before any active run is superseded.
 func (c *GlobalConfig) ResolvePiProfile(request *agentcfg.PiProfile) (*agentcfg.PiProfile, error) {
 	if request == nil {
 		return nil, nil
 	}
 	if err := request.ValidateRequest(); err != nil {
+		return nil, err
+	}
+	if err := validatePiProfileAgents(c.Agent, c.Agents, c.ReviewAgents); err != nil {
 		return nil, err
 	}
 	if slices.Contains(c.AgentArgsOverride["pi"], "--") {
@@ -41,16 +46,20 @@ func (c *GlobalConfig) ResolvePiProfile(request *agentcfg.PiProfile) (*agentcfg.
 // ValidatePiProfileAgents runs after trusted repository config is merged. A
 // single-model pin must not silently drop a configured non-Pi reviewer/fallback.
 func (c *Config) ValidatePiProfileAgents() error {
-	names := c.Agents
+	return validatePiProfileAgents(c.Agent, c.Agents, c.ReviewAgents)
+}
+
+func validatePiProfileAgents(agent types.AgentName, agents []types.AgentName, reviewAgents map[string]ReviewAgent) error {
+	names := agents
 	if len(names) == 0 {
-		names = []types.AgentName{c.Agent}
+		names = []types.AgentName{agent}
 	}
 	for _, name := range names {
 		if name != types.AgentPi {
 			return fmt.Errorf("Pi run profile requires agent: pi without non-Pi fallbacks")
 		}
 	}
-	for _, entry := range c.ReviewAgents {
+	for _, entry := range reviewAgents {
 		if entry.Agent != types.AgentPi {
 			return fmt.Errorf("Pi run profile conflicts with non-Pi review_agents")
 		}

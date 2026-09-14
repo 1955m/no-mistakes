@@ -74,36 +74,47 @@ func TestPiProfileLaunchRPCAndNonceReplay(t *testing.T) {
 }
 
 func TestPiProfileInvalidLaunchDoesNotSupersedeActiveRun(t *testing.T) {
-	p := paths.WithRoot(t.TempDir())
-	if err := p.EnsureDirs(); err != nil {
-		t.Fatal(err)
-	}
-	d, err := db.Open(p.DB())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer d.Close()
-	repo, head := setupTestGitRepo(t, p, d, "invalid-profile")
-	active, err := d.InsertRun(repo.ID, "feature", head, head)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(p.ConfigFile(), []byte("agent: pi\nagent_args_override:\n  pi: [--thinking, low]\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	m := NewRunManager(d, p, nil)
-	cancelled := false
-	m.cancels[active.ID] = func(error) { cancelled = true }
-	pin := &agentcfg.PiProfile{Model: "openai-codex/gpt-5.4", Effort: agentcfg.EffortHigh}
-	if _, err := m.startRun(context.Background(), repo, "feature", head, head, "test", nil, "pin", "", pin); err == nil {
-		t.Fatal("raw conflict accepted")
-	}
-	runs, err := d.GetRunsByRepo(repo.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cancelled || len(runs) != 1 || runs[0].ID != active.ID {
-		t.Fatalf("bad request changed active validation: cancelled=%v runs=%d", cancelled, len(runs))
+	for _, tc := range []struct {
+		name, config string
+	}{
+		{"raw selection flags", "agent: pi\nagent_args_override:\n  pi: [--thinking, low]\n"},
+		{"non-Pi agent", "agent: claude\n"},
+		{"mixed fallbacks", "agent: [pi, claude]\n"},
+		{"non-Pi review_agents", "agent: pi\nreview_agents:\n  reviewer: {agent: claude}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := paths.WithRoot(t.TempDir())
+			if err := p.EnsureDirs(); err != nil {
+				t.Fatal(err)
+			}
+			d, err := db.Open(p.DB())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer d.Close()
+			repo, head := setupTestGitRepo(t, p, d, "invalid-profile")
+			active, err := d.InsertRun(repo.ID, "feature", head, head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p.ConfigFile(), []byte(tc.config), 0600); err != nil {
+				t.Fatal(err)
+			}
+			m := NewRunManager(d, p, nil)
+			cancelled := false
+			m.cancels[active.ID] = func(error) { cancelled = true }
+			pin := &agentcfg.PiProfile{Model: "openai-codex/gpt-5.4", Effort: agentcfg.EffortHigh}
+			if _, err := m.startRun(context.Background(), repo, "feature", head, head, "test", nil, "pin", "", pin); err == nil {
+				t.Fatal("invalid pin accepted")
+			}
+			runs, err := d.GetRunsByRepo(repo.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cancelled || len(runs) != 1 || runs[0].ID != active.ID {
+				t.Fatalf("bad request changed active validation: cancelled=%v runs=%d", cancelled, len(runs))
+			}
+		})
 	}
 }
 

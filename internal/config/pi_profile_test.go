@@ -25,6 +25,16 @@ func TestResolvePiProfilePrecedenceAndLegacy(t *testing.T) {
 	if _, err := (&GlobalConfig{}).ResolvePiProfile(&agentcfg.PiProfile{Effort: agentcfg.EffortHigh}); err == nil {
 		t.Fatal("unresolved model accepted")
 	}
+	complete := &agentcfg.PiProfile{Model: "openai-codex/gpt-5.4", Effort: agentcfg.EffortHigh}
+	for _, mixed := range []*GlobalConfig{
+		{Agent: types.AgentClaude},
+		{Agents: []types.AgentName{types.AgentPi, types.AgentClaude}},
+		{Agent: types.AgentPi, ReviewAgents: map[string]ReviewAgent{"reviewer": {Agent: types.AgentClaude}}},
+	} {
+		if _, err := mixed.ResolvePiProfile(complete); err == nil {
+			t.Fatal("mixed harness accepted")
+		}
+	}
 }
 
 func TestApplyPiProfileConcurrentIsolationAndRecovery(t *testing.T) {
