@@ -1,0 +1,105 @@
+=== RUN   TestPhaseLiveConfiguredTestApproval
+    test_phase_override_live_test.go:46: BEFORE APPROVAL
+        run:
+          id: "01M2EZGEJ2QHZMVJEXA4054SFF"
+          branch: test-override-live
+          status: running
+          awaiting_agent: parked 0s
+          head: 8cba48da
+          head_sha: 8cba48daa51d929d097e9d3c26004b479f6c1484
+          findings: 2 info
+          steps[9]{step,status,findings,duration_ms}:
+            intent,skipped,0,48
+            rebase,completed,0,166
+            review,completed,1,327
+            test,awaiting_approval,1,281
+            document,pending,0,0
+            lint,pending,0,0
+            push,pending,0,0
+            pr,pending,0,0
+            ci,pending,0,0
+        branch_sync:
+          state: pipeline_owned
+          changed: false
+          local:
+            branch: test-override-live
+            head: 8cba48daa51d929d097e9d3c26004b479f6c1484
+            clean: true
+          pipeline:
+            run: "01M2EZGEJ2QHZMVJEXA4054SFF"
+            status: running
+            phase: pre_push
+            submitted_head: 8cba48daa51d929d097e9d3c26004b479f6c1484
+            current_head: 8cba48daa51d929d097e9d3c26004b479f6c1484
+            pushed_head: ""
+            pushed_at: 0
+            push_generation: 0
+          target:
+            kind: ""
+            remote: origin
+            url: /var/folders/0k/bf8mwt2n5qddzk24r20gfk0c0000gn/T/nm-e2e-4088336068/upstream.git
+            ref: ""
+          remote:
+            observed_head: ""
+            freshness: pipeline_push
+            observed_at: 0
+          relation: equal
+          safety: blocked_pipeline_owned
+          pr_state: none
+          note: a validation run is active on this branch; do not make local follow-up commits until it finishes
+          next_action:
+            code: continue_active_run
+            command: no-mistakes axi status
+        gate:
+          step: test
+          status: awaiting_approval
+          summary: "product-level-configured-test-failure\n\nall tests passed"
+          findings[1]{id,severity,file,action,description}:
+            test-1,error,"","",configured test command failed with exit code 7
+        help[2]: The explicitly selected gate for run 01M2EZGEJ2QHZMVJEXA4054SFF is inspection-only; no run-scoped response command exists,Run `no-mistakes axi logs --run 01M2EZGEJ2QHZMVJEXA4054SFF --step test --full` to read the full step log
+        
+        TEST LOG
+        step: test
+        run: "01M2EZGEJ2QHZMVJEXA4054SFF"
+        lines: 10 total
+        log[10]{line}:
+          "running tests: nm-test-phase-failure"
+          ""
+          product-level-configured-test-failure
+          ""
+          "configured test command failed, asking agent to gather live evidence..."
+          ""
+          claude started pid=82694
+          ""
+          tests passed with no evidence artifactstests passed with no evidence artifacts
+          claude exited pid=82694 status=success
+    test_phase_override_live_test.go:70: AFTER APPROVAL
+        run:
+          id: "01M2EZGEJ2QHZMVJEXA4054SFF"
+          branch: test-override-live
+          status: completed
+          head: 8cba48da
+          head_sha: 8cba48daa51d929d097e9d3c26004b479f6c1484
+          findings: 2 info
+          steps[9]{step,status,findings,duration_ms}:
+            intent,skipped,0,48
+            rebase,completed,0,166
+            review,completed,1,327
+            test,completed,1,281
+            document,completed,0,51
+            lint,completed,0,20
+            push,completed,0,240
+            pr,skipped,0,8
+            ci,skipped,0,7
+          automatic_skips[2]{step,reason}:
+            pr,provider unknown is not supported yet
+            ci,provider unknown is not supported yet
+        outcome: passed-with-skips
+        
+        PERSISTED TEST OVERRIDE
+        override_reason: configured test command failed with exit code 7
+        exit_code: 7
+        ci_override_reason: ""
+--- PASS: TestPhaseLiveConfiguredTestApproval (4.96s)
+PASS
+ok  	github.com/kunchenguid/no-mistakes/internal/e2e	5.281s

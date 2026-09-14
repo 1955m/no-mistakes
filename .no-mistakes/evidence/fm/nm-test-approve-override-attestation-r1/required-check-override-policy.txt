@@ -1,0 +1,18 @@
+CASE 1: approved failing configured test command, no repository opt-in
+::error::Test step was approved over a failing configured test command without a recorded repository opt-in.
+
+attestation test.override_reason: configured test command failed with exit code 7
+
+Set test.allow_approve_over_failure in the trusted default-branch .no-mistakes.yaml to a non-empty reason if this repository intentionally allows merging after that approval. The required check stays red until that opt-in is recorded.
+
+See CONTRIBUTING.md for setup and the full workflow.
+
+PR author: author
+Found no-mistakes signature in PR #1 body.
+exit=1
+
+CASE 2: approved failing configured test command, recorded repository opt-in
+Found no-mistakes signature in PR #2 body.
+Found structurally compliant pipeline step attestation.
+::warning::PR-body attestation is author-editable and is not cryptographic proof that no-mistakes produced it.
+exit=0
