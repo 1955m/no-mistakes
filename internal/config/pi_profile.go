@@ -12,7 +12,8 @@ import (
 // ResolvePiProfile resolves only opt-in requests. Native selection overrides
 // are ambiguous with a run pin and are refused, not silently given precedence.
 // Global agent and review_agents must already be Pi-only so a mixed harness is
-// refused before any active run is superseded.
+// refused before any active run is superseded. Trusted default-branch agent
+// selection is a separate pre-cancel check in the daemon.
 func (c *GlobalConfig) ResolvePiProfile(request *agentcfg.PiProfile) (*agentcfg.PiProfile, error) {
 	if request == nil {
 		return nil, nil

@@ -294,7 +294,9 @@ responsibility; no-mistakes does not inspect subscriptions or query quotas.
 
 A pin applies to **every pipeline duty**, including reviewer and fixer roles.
 The effective trusted agent selection must be Pi-only (no `auto`, non-Pi
-fallbacks, or non-Pi `review_agents`). Pi role-specific model/effort values are
+fallbacks, or non-Pi `review_agents`), including `agent` / fallbacks from the
+trusted default-branch `.no-mistakes.yaml`. That check runs before any active
+validation is cancelled. Pi role-specific model/effort values are
 superseded by the run pin. Native `--model`, `--provider`, `--models`,
 `--thinking` (including `--flag=value`), or `--` in
 `agent_args_override.pi` conflict at launch: move defaults to `agent_config.pi`

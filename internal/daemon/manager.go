@@ -1169,6 +1169,67 @@ func fetchRunDefaultBranch(ctx context.Context, workDir string, repo *db.Repo) e
 	return git.FetchRemoteBranchToRef(ctx, workDir, repo.UpstreamURL, repo.DefaultBranch, "refs/remotes/origin/"+repo.DefaultBranch)
 }
 
+// fetchTrustedDefaultBranchSHA imports the live default branch into a
+// caller-owned private ref on the gate. It does not rewrite origin tracking
+// refs, FETCH_HEAD, or any shared worktree ref, so a refused Pi pin cannot
+// perturb an in-flight validation that must stay running.
+func fetchTrustedDefaultBranchSHA(ctx context.Context, gateDir string, repo *db.Repo) (string, error) {
+	if strings.TrimSpace(repo.DefaultBranch) == "" {
+		return "", fmt.Errorf("cannot evaluate Pi run profile: repository has no known default branch to read trusted config from")
+	}
+	privateRef := fmt.Sprintf("refs/no-mistakes/pi-profile/%d-%d", os.Getpid(), time.Now().UnixNano())
+	defer func() {
+		_, _ = git.Run(context.WithoutCancel(ctx), gateDir, "update-ref", "--no-deref", "-d", privateRef)
+	}()
+	originURL, err := git.GetRemoteURL(ctx, gateDir, "origin")
+	var fetchErr error
+	if !repo.URLsVerified || (err == nil && safeurl.Redact(originURL) == repo.UpstreamURL) {
+		fetchErr = git.FetchRemoteBranchToPrivateRef(ctx, gateDir, "origin", repo.DefaultBranch, privateRef)
+	} else {
+		fetchErr = git.FetchRemoteBranchToPrivateRef(ctx, gateDir, repo.UpstreamURL, repo.DefaultBranch, privateRef)
+	}
+	if fetchErr != nil {
+		return "", fmt.Errorf("cannot evaluate Pi run profile: failed to fetch trusted default branch %q: %w", repo.DefaultBranch, fetchErr)
+	}
+	sha, err := git.ResolveRef(ctx, gateDir, privateRef)
+	if err != nil {
+		return "", fmt.Errorf("cannot evaluate Pi run profile: failed to resolve trusted default branch %q: %w", repo.DefaultBranch, err)
+	}
+	return sha, nil
+}
+
+// validatePiProfileAgentsBeforeCancel loads the effective trusted repo agent
+// selection (and, when allow_repo_commands is set, the pushed copy) from the
+// gate and runs the same check ValidatePiProfileAgents will run after merge.
+// A trusted default-branch Claude or mixed fallback list must fail here, not
+// after cancelActiveRuns has already stopped a healthy validation.
+func (m *RunManager) validatePiProfileAgentsBeforeCancel(ctx context.Context, repo *db.Repo, headSHA string, globalCfg *config.GlobalConfig) error {
+	gateDir := m.paths.RepoDir(repo.ID)
+	trustedSHA, err := fetchTrustedDefaultBranchSHA(ctx, gateDir, repo)
+	if err != nil {
+		return err
+	}
+	trustedRepoCfg := loadTrustedRepoConfig(ctx, gateDir, trustedSHA, "")
+	allowRepoCommands := trustedRepoCfg != nil && trustedRepoCfg.AllowRepoCommands
+	effective := config.EffectiveRepoConfig(loadRepoConfigAtSHA(ctx, gateDir, headSHA), trustedRepoCfg, allowRepoCommands)
+	return config.Merge(globalCfg, effective).ValidatePiProfileAgents()
+}
+
+func loadRepoConfigAtSHA(ctx context.Context, dir, sha string) *config.RepoConfig {
+	if sha == "" {
+		return &config.RepoConfig{}
+	}
+	content, err := git.ShowFile(ctx, dir, sha, ".no-mistakes.yaml")
+	if err != nil {
+		return &config.RepoConfig{}
+	}
+	cfg, err := config.LoadRepoFromBytes([]byte(content))
+	if err != nil {
+		return &config.RepoConfig{}
+	}
+	return cfg
+}
+
 // startRun creates a run, sets up a worktree, and launches pipeline execution.
 // A non-empty intent is stamped onto the run as agent-supplied, so the intent
 // step uses it instead of inferring from transcripts.
@@ -1224,6 +1285,9 @@ func (m *RunManager) startRunWithIntentSourceLocked(ctx context.Context, repo *d
 
 	// Resolve before cancellation, row creation or any pipeline work. A bad
 	// dispatch request must not supersede a healthy active validation.
+	// ResolvePiProfile checks the global agent list; trusted default-branch
+	// agent selection is checked next because it can still replace that list
+	// with Claude or mixed fallbacks after merge.
 	var globalCfg *config.GlobalConfig
 	var pin *agentcfg.PiProfile
 	if request := agentcfg.OptionalPiProfile(profiles); request != nil {
@@ -1235,6 +1299,10 @@ func (m *RunManager) startRunWithIntentSourceLocked(ctx context.Context, repo *d
 		}
 		pin, err = globalCfg.ResolvePiProfile(request)
 		if err != nil {
+			trackStartFailure("invalid_pi_profile")
+			return "", err
+		}
+		if err := m.validatePiProfileAgentsBeforeCancel(ctx, repo, headSHA, globalCfg); err != nil {
 			trackStartFailure("invalid_pi_profile")
 			return "", err
 		}

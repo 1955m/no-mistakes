@@ -118,6 +118,50 @@ func TestPiProfileInvalidLaunchDoesNotSupersedeActiveRun(t *testing.T) {
 	}
 }
 
+func TestPiProfileTrustedRepoAgentOverrideDoesNotSupersedeActiveRun(t *testing.T) {
+	for _, tc := range []struct {
+		name, yaml string
+	}{
+		{"non-Pi agent", "agent: claude\n"},
+		{"mixed fallbacks", "agent: [pi, claude]\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := paths.WithRoot(t.TempDir())
+			if err := p.EnsureDirs(); err != nil {
+				t.Fatal(err)
+			}
+			d, err := db.Open(p.DB())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer d.Close()
+			repo, _ := setupTestGitRepo(t, p, d, "trusted-profile")
+			head := commitDefaultBranchConfig(t, repo.WorkingPath, tc.yaml)
+			active, err := d.InsertRun(repo.ID, "feature", head, head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p.ConfigFile(), []byte("agent: pi\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			m := NewRunManager(d, p, nil)
+			cancelled := false
+			m.cancels[active.ID] = func(error) { cancelled = true }
+			pin := &agentcfg.PiProfile{Model: "openai-codex/gpt-5.4", Effort: agentcfg.EffortHigh}
+			if _, err := m.startRun(context.Background(), repo, "feature", head, head, "test", nil, "pin", "", pin); err == nil {
+				t.Fatal("trusted-repo override accepted")
+			}
+			runs, err := d.GetRunsByRepo(repo.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cancelled || len(runs) != 1 || runs[0].ID != active.ID {
+				t.Fatalf("trusted-repo override changed active validation: cancelled=%v runs=%d", cancelled, len(runs))
+			}
+		})
+	}
+}
+
 func TestPiProfileRecoveryUsesPersistedPinAndLegacyUsesLiveConfig(t *testing.T) {
 	p := paths.WithRoot(t.TempDir())
 	if err := p.EnsureDirs(); err != nil {
