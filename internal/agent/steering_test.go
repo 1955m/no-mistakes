@@ -167,8 +167,9 @@ func TestWorktreeSteering_DescribesSoftBoundary(t *testing.T) {
 // scenario ever ran. The preamble that allows out-of-worktree reads must name
 // whole-root searches as disallowed (including the exact `find /` shape and the
 // `mdfind /` spotlight variant), keep bounded worktree/evidence/repo-local reads
-// allowed, and spell out the missing-tool fallback so a validation agent reports
-// the affected scenario untested instead of hunting the machine.
+// allowed, and spell out a missing-tool fallback that stays role-neutral: only
+// the Test step has scenarios and an "untested" state, so the shared preamble
+// asks the role to report the missing tool in its own normal result.
 func TestWorktreeSteering_BoundsHostFilesystemSearch(t *testing.T) {
 	preamble := WorktreeSteering(filepath.Join(t.TempDir(), "evidence"))
 	normalized := strings.Join(strings.Fields(preamble), " ")
@@ -181,13 +182,17 @@ func TestWorktreeSteering_BoundsHostFilesystemSearch(t *testing.T) {
 		"external evidence path a prompt explicitly names",
 		"repository-local path you were given remain fine",
 		"not on PATH and no repository-local path is supplied",
-		`report the affected scenario as "untested"`,
-		"with the concrete reason naming the missing tool",
-		"stop there",
+		"report the missing tool and the work it blocked in your normal result",
+		"with the concrete reason, and stop there",
 	} {
 		if !strings.Contains(normalized, want) {
 			t.Errorf("steering preamble missing host-search boundary %q:\n%s", want, preamble)
 		}
+	}
+	// The shared fallback must not claim a scenario/untested shape that only the
+	// Test step's schema supports; the Test prompt owns that wording.
+	if strings.Contains(normalized, "untested") || strings.Contains(normalized, "scenario") {
+		t.Errorf("shared steering fallback is not role-neutral (mentions scenario/untested):\n%s", preamble)
 	}
 	// The pre-existing read allowance must survive: this narrows an unbounded
 	// host search, it does not ban reading outside the worktree.
