@@ -41,7 +41,10 @@ func TestPiRunProfileSurvivesGlobalChangesAcrossEveryDuty(t *testing.T) {
 	}
 	h.globalConfigExtra = "agent_config:\n  pi: {model: anthropic/changed, effort: low}\nagent_args_override:\n  pi: [--model, anthropic/raw-changed, --thinking, low]\nreview_agents:\n  reviewer: {agent: claude}\n"
 	h.writeGlobalConfig()
-	h.Respond(gated.ID, types.StepReview, types.ActionFix)
+	// Empty FindingIDs means no findings, not all of them. The review
+	// carry-forward contract keeps an unnamed selection outstanding, so the
+	// run would park again after rereview and never go terminal.
+	h.RespondWithFindings(gated.ID, types.StepReview, types.ActionFix, []string{"routing-check"})
 	run := h.WaitForRun(branch, 120*time.Second)
 	if run.Status != types.RunCompleted {
 		t.Fatalf("run did not complete: %+v", run)
